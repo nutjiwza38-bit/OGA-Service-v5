@@ -486,8 +486,22 @@ function printModal() {
 function exportCSV() {
   if (!filtered.length) { alert('ไม่มีข้อมูลที่จะ export'); return; }
   const headers = ['บันทึกเมื่อ','เลขที่','วันที่','ลูกค้า','ผู้ติดต่อ','ที่อยู่','โทรศัพท์','เครื่อง/รุ่น','จำนวน','วันติดตั้ง','Serial No.','ประเภทบริการ','อื่นๆ','อาการเสีย','สาเหตุ/แก้ไข','หมายเหตุ','ค่าบริการ','ความพึงพอใจ','ช่าง','ลูกค้า(ลงชื่อ)','เวลาเริ่ม','เวลาเสร็จ'];
-  const csv = [headers, ...filtered].map(r => r.map(c=>`"${(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
-  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8'});
+  
+  const csvRows = [];
+  csvRows.push(headers.map(h => `"${h.replace(/"/g, '""')}"`).join(','));
+  
+  filtered.forEach(r => {
+    const rowCells = [];
+    for (let i = 0; i < headers.length; i++) {
+      const val = r[i];
+      const strVal = String(val === null || val === undefined ? '' : val);
+      rowCells.push(`"${strVal.replace(/"/g, '""')}"`);
+    }
+    csvRows.push(rowCells.join(','));
+  });
+  
+  const csv = csvRows.join('\n');
+  const blob = new Blob(['\uFEFF' + csv], {type: 'text/csv;charset=utf-8'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `OGA_ServiceReport_${new Date().toISOString().split('T')[0]}.csv`;
