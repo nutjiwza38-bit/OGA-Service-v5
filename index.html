@@ -1963,10 +1963,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // ===== รับค่าจาก query string (จาก history.html) =====
   const params = new URLSearchParams(window.location.search);
   if (params.has('no')) {
-    const fields = ['no','date','customer','contact','address','tel','machine','qty','insdate','serial','visit_other','trouble','cause','remark','arrival','jobdone','cussign'];
+    const FIELD_MAX = { no:30, date:20, customer:100, contact:80, address:300, tel:30,
+                        machine:100, qty:10, insdate:20, serial:60, visit_other:100,
+                        trouble:500, cause:500, remark:300, arrival:10, jobdone:10, cussign:80 };
+    const fields = Object.keys(FIELD_MAX);
     fields.forEach(f => {
       const el = document.getElementById('f_' + f);
-      if (el && params.has(f)) el.value = params.get(f);
+      if (el && params.has(f)) el.value = sanitizeText(params.get(f), FIELD_MAX[f]);
     });
 
     // ช่างผู้ให้บริการ (select)
@@ -2026,47 +2029,12 @@ document.addEventListener('DOMContentLoaded', () => {
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwUJko7dEkqIt_YfzlKj3pFA3217axKXWFrCsYODhY6mUJk4X3F_I-1JCAegDyKad6t/exec';
 
 // ===== GOOGLE SHEETS CONFIG =====
+// NOTE: SHEET_ID ใช้เฉพาะ legacy path (fallback) — การ save/read หลักผ่าน Apps Script ด้านบนทั้งหมด
+// Private Key และ Service Account Email ต้องเก็บไว้ใน Apps Script เท่านั้น ห้ามใส่ที่นี่
 const SHEET_ID = '1X-lH3ZJ7UTMV3g9MXqAoGylK7VqN46plnsezIZZML90';
-const SERVICE_ACCOUNT_EMAIL = 'oga-service@alert-weaver-498409-u7.iam.gserviceaccount.com';
-const PRIVATE_KEY = `-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCz3iffEMYGZ0GQ\nIbUWhAB5u1t3RgOytDscVtV7xX44HP2aWAgbZrbJr9EqHHpp9tHz4A5mKgDXthId\nBJMlS9Edib1PWwdEr9r6OgnEFYjzwNcp79qNKl5IFaeDPzNyW+bcge9MtCeoSnPT\nkBxRh+6Ub/nIhtJyDmz2Y/pgz4mAohbS7rMYhzlWixX/ODZt8j45RTarPyLLiAiM\nd20nKjqdB8m4GIIcrE18hu4H9DUPTTONZO7toiQc2T4PsW/en5QOsHEJGQHecGq/\nMyP5cYjoNBuVuHZ8LXnox6xQ9Bunnv/HLp572si8AzBvsjr+91PGBadjiS7RpJcy\nXyESfDQzAgMBAAECggEADwZfOUR67j0A3ovaRyu2qHSMou1/0JU6nNbqFWE9dm2B\nh7uTzcoqObXMmKJxXVmnVyJfwYv/rwVABRmFOyfWq4t+e1sEw+mWtrFTcIRGAOqa\nbp/hF0qzPn1ElXOZlhN0OPZHqZYg++9gNouCuhLLTK3/5Q7SFIH8+yYF28FqYIrF\npNBXjLEYlsKc2t8w5WXQmZsSWRF4OuEGWEQYsk0+oDEchh1VCKNnZw1AdzYjrdPD\nR4aNDV9AgZrdFZ3tn65CWCQyaRyFJt3Dc1rJuiuP4IoOMCzwZZr1mhW0O89xXjAk\nXheiBs17KNadg1qsEmaM/lX2BOFib5K51s9qZhgrMQKBgQDuo6m4Makj1BJ59Vhg\n0nT/17hxXqEp9F5BdPgZWoDzf59PUBaFExEX2naSkvXUz1DD4xuTZoPdXWDFLk/m\nsC8oK+tJbN9d/XnWHQXtm7rTirm3/pvXdaNNR0j9Log6bmJvNtChmXB3kLt4RvNS\n+RT2Vr2ATFWYE3Y02TxsVlhAcQKBgQDA8/PCqysujryerm240jDzfri0vSizo7B9\nQ5LUNqCVWeJOoFD2g/xtJFYaM7VomTwNH6T2Dqr3YCzZSB35/YIGuGbPNxTlZeOO\nkoAGReXvpkpCkLkJnjhIr6ZG4JhjnTDBL4u9OHsbQrf0q8PR4K3bHRNvXn6+kBzg\nNQXv+3QQ4wKBgQCtqCWaZ3EJJItpepOcqaoAf6+1uEIZcL2ibocYlBagm2+H3OT2\nY+CddhmxIgaInXDNi5gGlKRC02/XLZNxcSZv2j33CaYmFI2ztR0aQqgaxqnNbhdk\nHDQAyW4g59q0gp1ZBw+deTYxm/4AUclByQZrGMX/9gyXhRoQ7UCeKdtA0QKBgATL\ny4pSMN+WYq/bDBUk/FyBENxFO2bDsdZbQKIPvYwY0Nw9deW6wCKCXbWHBYJVFL4K\nxFHtaWh+tn6sITqeh4XdPYj3CIjvMGnR0GbXg/CiBISFDmRjz2hXHV3zpTYMqTKU\nGPgaGE1EKkhloJdt60RgA6SoB6R69ozIJJ6jdG4bAoGAY3vADS3lZDnDDfExb2jD\nUnI7Rn0D5pNgmrA64ns8l91bTX5wezHwCooaDnewrkwUBv9r7rnSYWrvP0BCJY27\nSjAVynCgjHr/mLn+N3W3bM69+dz5gWRmK3hOzURLp0uKAL+8cOC8enyXOTAC/0iV\ng+PDJ0L5GrlYbKF4obOjwlM=\n-----END PRIVATE KEY-----`;
 
-async function getAccessToken() {
-  const header = { alg: 'RS256', typ: 'JWT' };
-  const now = Math.floor(Date.now() / 1000);
-  const claim = {
-    iss: SERVICE_ACCOUNT_EMAIL,
-    scope: 'https://www.googleapis.com/auth/spreadsheets',
-    aud: 'https://oauth2.googleapis.com/token',
-    exp: now + 3600,
-    iat: now
-  };
-  function b64(obj) {
-    return btoa(unescape(encodeURIComponent(JSON.stringify(obj))))
-      .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-  }
-  const unsigned = b64(header) + '.' + b64(claim);
-  // Import private key
-  const pemBody = PRIVATE_KEY.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\n/g,'');
-  const binaryKey = Uint8Array.from(atob(pemBody), c => c.charCodeAt(0));
-  const cryptoKey = await crypto.subtle.importKey(
-    'pkcs8', binaryKey.buffer,
-    { name:'RSASSA-PKCS1-v1_5', hash:'SHA-256' },
-    false, ['sign']
-  );
-  const sig = await crypto.subtle.sign(
-    'RSASSA-PKCS1-v1_5', cryptoKey,
-    new TextEncoder().encode(unsigned)
-  );
-  const jwt = unsigned + '.' + btoa(String.fromCharCode(...new Uint8Array(sig)))
-    .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-  const resp = await fetch('https://oauth2.googleapis.com/token', {
-    method:'POST',
-    headers:{'Content-Type':'application/x-www-form-urlencoded'},
-    body:`grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`
-  });
-  const data = await resp.json();
-  return data.access_token;
-}
+// getAccessToken ถูกลบออก — Service Account Private Key ต้องอยู่ใน Apps Script เท่านั้น
+// การ write/read Sheets ทั้งหมดผ่าน APPS_SCRIPT_URL
 
 
 // ============================================================
@@ -2204,57 +2172,29 @@ async function saveToSheets() {
   }
 }
 
-// Legacy: ใช้ Service Account โดยตรง (fallback เมื่อยังไม่ได้ตั้ง Apps Script)
+// Legacy path ถูกลบออกแล้ว — Private Key ไม่ควรอยู่ใน client
+// ถ้า APPS_SCRIPT_URL ยังไม่ตั้งค่า ให้แจ้งเตือนผู้ใช้
 async function saveToSheetsLegacy() {
-  const btn = document.getElementById('saveBtn');
-  const no = fv('f_no');
-  btn.disabled = true;
-  btn.innerHTML = '⏳ <span>กำลังบันทึก...</span>';
-  try {
-    const token = await getAccessToken();
-    const visits = getChecked('visit').map(visitLabel).join(', ');
-    const charge = getRadio('charge');
-    const rating = getRadio('rating');
-    const chargeMap = { paid:'คิดค่าบริการ', free:'ไม่คิดค่าบริการ', warranty:'ระยะรับประกัน', maintenance:'ระยะสัญญาบำรุง' };
-    const ratingMap = { '4':'ยอดเยี่ยม', '3':'ดี', '2':'พอใช้', '1':'ควรปรับปรุง' };
-    const row = [
-      new Date().toISOString(),
-      fv('f_no'), fv('f_date'), fv('f_customer'), fv('f_contact'),
-      fv('f_address'), fv('f_tel'), fv('f_machine'), fv('f_qty'),
-      (document.getElementById('f_insdate')||{}).value||'', fv('f_serial'), visits, fv('f_visit_other'),
-      fv('f_trouble'), fv('f_cause'), fv('f_remark'),
-      chargeMap[charge]||'', ratingMap[rating]||'',
-      fv('f_techsign'), fv('f_cussign'), fv('f_arrival'), fv('f_jobdone')
-    ];
-    const checkResp = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Sheet1!A1`,
-      { headers:{ Authorization:'Bearer '+token } }
-    );
-    const checkData = await checkResp.json();
-    if (!checkData.values) {
-      const headers = [['บันทึกเมื่อ','เลขที่','วันที่','ลูกค้า','ผู้ติดต่อ','ที่อยู่','โทรศัพท์','เครื่อง/รุ่น','จำนวน','วันติดตั้ง','Serial No.','ประเภทบริการ','อื่นๆ','อาการเสีย','สาเหตุ/แก้ไข','หมายเหตุ','ค่าบริการ','ความพึงพอใจ','ช่าง','ลูกค้า (ลงชื่อ)','เวลาเริ่ม','เวลาเสร็จ']];
-      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Sheet1!A1:append?valueInputOption=RAW`,
-        { method:'POST', headers:{ Authorization:'Bearer '+token, 'Content-Type':'application/json' }, body: JSON.stringify({ values: headers }) });
-    }
-    const appendResp = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Sheet1!A1:append?valueInputOption=RAW`,
-      { method:'POST', headers:{ Authorization:'Bearer '+token, 'Content-Type':'application/json' }, body: JSON.stringify({ values: [row] }) }
-    );
-    if (appendResp.ok) {
-      dataSaved = true;
-      updateSaveUI();
-      alert('✅ บันทึกข้อมูลสำเร็จ!\nเลขที่: ' + no);
-      saveToLocalHistory();
-    } else {
-      const err = await appendResp.json();
-      throw new Error(err.error?.message || 'บันทึกไม่สำเร็จ');
-    }
-  } catch(e) {
-    alert('❌ เกิดข้อผิดพลาด: ' + e.message);
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = '&#128190; <span>บันทึกข้อมูล</span>';
-  }
+  alert('❌ กรุณาตั้งค่า APPS_SCRIPT_URL ใน index.html ก่อนใช้งาน\n\nPrivate Key ถูกลบออกจาก client-side code แล้วเพื่อความปลอดภัย');
+}
+
+// ===========================
+// SECURITY HELPERS
+// ===========================
+function escapeHtml(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+// Sanitize input ที่รับจาก query string / user input ก่อนใส่ form value
+function sanitizeText(str, maxLen) {
+  if (str == null) return '';
+  return String(str).slice(0, maxLen || 500);
 }
 
 // ===========================
@@ -2293,7 +2233,7 @@ function renderTechList() {
   if (!techs.length) { el.innerHTML = '<p style="color:#999;font-size:13px;text-align:center;">ยังไม่มีรายชื่อช่าง</p>'; return; }
   el.innerHTML = techs.map((t,i) => `
     <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#f5f7ff;border-radius:7px;">
-      <span style="flex:1;font-size:14px;">👷 ${t}</span>
+      <span style="flex:1;font-size:14px;">👷 ${escapeHtml(t)}</span>
       <button onclick="removeTech(${i})" style="padding:4px 12px;background:#fee;border:1px solid #fcc;border-radius:6px;color:#c00;font-family:inherit;font-size:12px;cursor:pointer;">ลบ</button>
     </div>`).join('');
 }
@@ -2538,21 +2478,7 @@ let shCurrentPage = 1;
 const SH_PER_PAGE = 20;
 let shCurrentRow = null;
 
-async function shGetAccessToken() {
-  const header = { alg:'RS256', typ:'JWT' };
-  const now = Math.floor(Date.now()/1000);
-  const claim = { iss:SERVICE_ACCOUNT_EMAIL, scope:'https://www.googleapis.com/auth/spreadsheets.readonly', aud:'https://oauth2.googleapis.com/token', exp:now+3600, iat:now };
-  function b64(obj){ return btoa(unescape(encodeURIComponent(JSON.stringify(obj)))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
-  const unsigned = b64(header)+'.'+b64(claim);
-  const pemBody = PRIVATE_KEY.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\n/g,'');
-  const binaryKey = Uint8Array.from(atob(pemBody),c=>c.charCodeAt(0));
-  const cryptoKey = await crypto.subtle.importKey('pkcs8',binaryKey.buffer,{name:'RSASSA-PKCS1-v1_5',hash:'SHA-256'},false,['sign']);
-  const sig = await crypto.subtle.sign('RSASSA-PKCS1-v1_5',cryptoKey,new TextEncoder().encode(unsigned));
-  const jwt = unsigned+'.'+btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-  const resp = await fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:`grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`});
-  const data = await resp.json();
-  return data.access_token;
-}
+// shGetAccessToken ถูกลบออก — ใช้ APPS_SCRIPT_URL แทนทั้งหมด
 
 async function shLoadData() {
   document.getElementById('shTableBody').innerHTML = '<div style="text-align:center;padding:60px;color:var(--muted);font-size:15px;"><div style="width:36px;height:36px;border:3px solid #e0e0e0;border-top-color:var(--blue);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 14px;"></div>กำลังโหลดข้อมูล...</div>';
@@ -2902,43 +2828,7 @@ async function shDeleteRow(e, idx) {
 }
 
 async function shDeleteRowLegacy(r, idx) {
-  try {
-    const token = await getAccessToken();
-    const metaResp = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}`, {
-      headers: { Authorization: 'Bearer ' + token }
-    });
-    const meta = await metaResp.json();
-    const sheet = (meta.sheets || []).find(s => s.properties.title === 'Sheet1');
-    if (!sheet) throw new Error('ไม่พบ Sheet1');
-    const sheetId = sheet.properties.sheetId;
-    const rowIdx = r._origRowIndex - 1;
-    const deleteResp = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`, {
-      method: 'POST',
-      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        requests: [{
-          deleteDimension: {
-            range: {
-              sheetId: sheetId,
-              dimension: 'ROWS',
-              startIndex: rowIdx,
-              endIndex: rowIdx + 1
-            }
-          }
-        }]
-      })
-    });
-    if (!deleteResp.ok) {
-      const err = await deleteResp.json();
-      throw new Error(err.error?.message || 'ลบไม่สำเร็จ');
-    }
-    alert('✅ ลบรายการเรียบร้อยแล้ว');
-    const modal = document.getElementById('shModalOverlay');
-    if (modal) modal.style.display = 'none';
-    shLoadData();
-  } catch(err) {
-    alert('❌ เกิดข้อผิดพลาด: ' + err.message);
-  }
+  alert('❌ กรุณาตั้งค่า APPS_SCRIPT_URL ก่อนใช้งานฟีเจอร์นี้\n\nPrivate Key ถูกลบออกแล้วเพื่อความปลอดภัย');
 }
 
 function shExportCSV() {
@@ -2956,15 +2846,34 @@ function shExportCSV() {
 const AUTH_KEY = 'oga_auth_session';
 const USERS_CACHE_KEY = 'oga_users_cache';
 
-// Hash function (simple but adequate for Apps Script-based auth)
-function hashPass(str) {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const c = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + c;
-    hash |= 0;
+// Hash function — SHA-256 + salt (browser SubtleCrypto)
+async function hashPass(str, salt) {
+  if (!salt) {
+    // สร้าง salt แบบสุ่ม 16 bytes → hex string
+    const buf = crypto.getRandomValues(new Uint8Array(16));
+    salt = Array.from(buf).map(b => b.toString(16).padStart(2,'0')).join('');
   }
-  return 'h' + Math.abs(hash).toString(36) + str.length.toString(36);
+  const enc = new TextEncoder().encode(salt + str);
+  const hashBuf = await crypto.subtle.digest('SHA-256', enc);
+  const hashHex = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2,'0')).join('');
+  return salt + ':' + hashHex; // format: "salt:hash"
+}
+
+async function verifyPass(str, storedHash) {
+  // รองรับ hash รูปแบบเก่า (djb2) สำหรับ migration
+  if (!storedHash.includes(':')) {
+    // legacy hash — compare โดยตรง แต่ force re-hash ตอน login
+    let legacyHash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const c = str.charCodeAt(i);
+      legacyHash = ((legacyHash << 5) - legacyHash) + c;
+      legacyHash |= 0;
+    }
+    return 'h' + Math.abs(legacyHash).toString(36) + str.length.toString(36) === storedHash;
+  }
+  const [salt] = storedHash.split(':');
+  const computed = await hashPass(str, salt);
+  return computed === storedHash;
 }
 
 // ===== USERS: ดึงจาก Apps Script (Google Sheets) =====
@@ -3035,26 +2944,51 @@ async function doLogin() {
   err.textContent = '';
   if (!u || !p) { err.textContent = 'กรุณากรอกชื่อผู้ใช้และรหัสผ่าน'; return; }
 
-  // แสดง loading
+  // Rate-limit: ป้องกัน brute force ง่ายๆ
+  const rlKey = 'oga_login_fail';
+  const rlRaw = sessionStorage.getItem(rlKey);
+  const rl = rlRaw ? JSON.parse(rlRaw) : { count: 0, until: 0 };
+  if (Date.now() < rl.until) {
+    const secs = Math.ceil((rl.until - Date.now()) / 1000);
+    err.textContent = `⏳ ลองอีกครั้งใน ${secs} วินาที`;
+    return;
+  }
+
   if (btn) { btn.disabled = true; btn.textContent = '⏳ กำลังตรวจสอบ...'; }
 
   try {
-    // ดึง users จาก Sheets ก่อนเสมอ
     let users = await fetchUsersFromSheet();
-
-    // ถ้า fetch Sheet ล้มเหลว → ใช้ cache ที่มีอยู่ก่อน (ห้ามสร้าง Admin ใหม่ทับ)
     if (!users) users = getCachedUsers();
-    // สร้าง Admin เริ่มต้นเฉพาะกรณีที่ไม่มีข้อมูลเลยจริงๆ (ระบบใหม่ครั้งแรก)
+    // ไม่สร้าง Admin เริ่มต้นอัตโนมัติ — ต้องสร้างผ่าน Apps Script เท่านั้น
     if (!users || users.length === 0) {
-      users = [
-        { username: 'Admin', display: 'ผู้ดูแลระบบ', passHash: hashPass('9BXvuf33###'), role: 'admin', active: true }
-      ];
-      await pushUsersToSheet(users);
+      err.textContent = '⚠️ ยังไม่มีผู้ใช้ในระบบ กรุณาติดต่อผู้ดูแล';
+      return;
     }
 
-    const found = users.find(x => String(x.username).toLowerCase() === u.toLowerCase() && x.passHash === hashPass(p));
-    if (!found) { err.textContent = '❌ ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง'; return; }
+    const found = users.find(x => String(x.username).toLowerCase() === u.toLowerCase());
+    const passOk = found ? await verifyPass(p, found.passHash) : false;
+
+    if (!found || !passOk) {
+      // เพิ่ม fail count
+      rl.count = (rl.count || 0) + 1;
+      if (rl.count >= 5) { rl.until = Date.now() + 30000; rl.count = 0; } // lockout 30 วิ
+      sessionStorage.setItem(rlKey, JSON.stringify(rl));
+      err.textContent = '❌ ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง';
+      return;
+    }
     if (!found.active) { err.textContent = '⛔ บัญชีนี้ถูกระงับการใช้งาน'; return; }
+
+    // reset fail count
+    sessionStorage.removeItem(rlKey);
+
+    // Upgrade legacy hash (djb2) → SHA-256 ในพื้นหลัง
+    if (!found.passHash.includes(':')) {
+      const newHash = await hashPass(p);
+      found.passHash = newHash;
+      const allUsers = getCachedUsers() || [];
+      const idx = allUsers.findIndex(x => x.username === found.username);
+      if (idx !== -1) { allUsers[idx].passHash = newHash; await pushUsersToSheet(allUsers); }
+    }
 
     setSession({ username: found.username, display: found.display, role: found.role });
     document.getElementById('loginOverlay').classList.remove('show');
@@ -3097,11 +3031,11 @@ function doLogout() {
 
 
 // ===== HISTORY PAGE LOCK =====
-function verifyHistoryLock() {
+async function verifyHistoryLock() {
   const p = document.getElementById('historyPass').value;
   const users = getCachedUsers() || [];
   const admin = users.find(x => x.role === 'admin' && x.username === 'Admin');
-  if (admin && hashPass(p) === admin.passHash) {
+  if (admin && await verifyPass(p, admin.passHash)) {
     document.getElementById('historyLockOverlay').classList.remove('show');
     document.getElementById('historyPass').value = '';
     showPage('sheetsHistory');
@@ -3149,8 +3083,8 @@ function renderUserList() {
       `<button onclick="deleteUser(${i})" style="padding:5px 10px;border-radius:6px;border:1px solid #fcc;background:#fee;color:#c00;font-family:inherit;font-size:12px;cursor:pointer;">🗑</button>`;
     return `<div class="um-user-row">
       <div class="um-user-info">
-        <div class="um-user-name">${u.display || u.username} ${isMainAdmin ? '⭐' : ''}</div>
-        <div class="um-user-role">@${u.username} &nbsp; ${roleBadge} ${statusBadge}</div>
+        <div class="um-user-name">${escapeHtml(u.display || u.username)} ${isMainAdmin ? '⭐' : ''}</div>
+        <div class="um-user-role">@${escapeHtml(u.username)} &nbsp; ${roleBadge} ${statusBadge}</div>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
         ${toggleBtn}
@@ -3211,19 +3145,29 @@ async function addUser() {
   errEl.style.color = '#c62828';
   errEl.textContent = '';
   if (!username || !pass) { errEl.textContent = 'กรุณากรอกชื่อผู้ใช้และรหัสผ่าน'; return; }
-  if (pass.length < 4) { errEl.textContent = 'รหัสผ่านต้องมีอย่างน้อย 4 ตัวอักษร'; return; }
+  if (pass.length < 8) { errEl.textContent = 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร'; return; }
+  if (!/[A-Z]/.test(pass) || !/[0-9]/.test(pass)) {
+    errEl.textContent = 'รหัสผ่านต้องมีตัวพิมพ์ใหญ่และตัวเลขอย่างน้อย 1 ตัว';
+    return;
+  }
+  // Sanitize username
+  if (!/^[a-zA-Z0-9_\u0E00-\u0E7F]{2,30}$/.test(username)) {
+    errEl.textContent = 'ชื่อผู้ใช้ใช้ได้เฉพาะ a-z, 0-9, _ หรือภาษาไทย (2-30 ตัว)';
+    return;
+  }
 
   errEl.style.color = '#1565c0';
-  errEl.textContent = '\u23f3 กำลังบันทึก...';
+  errEl.textContent = '⏳ กำลังบันทึก...';
 
   try {
+    const passHash = await hashPass(pass);
     const result = await callSheetAPI({
       action: 'addUser',
-      user: { username, display: display || username, passHash: hashPass(pass), role }
+      user: { username, display: display || username, passHash, role }
     });
     if (result.error) {
       errEl.style.color = '#c62828';
-      errEl.textContent = '\u274c ' + result.error;
+      errEl.textContent = '❌ ' + result.error;
       return;
     }
     await fetchUsersFromSheet();
@@ -3233,27 +3177,19 @@ async function addUser() {
     document.getElementById('umNewRole').value = 'user';
     renderUserList();
     errEl.style.color = '#2e7d32';
-    errEl.textContent = '\u2705 เพิ่มผู้ใช้สำเร็จ';
+    errEl.textContent = '✅ เพิ่มผู้ใช้สำเร็จ';
     setTimeout(() => { errEl.textContent = ''; errEl.style.color = '#c62828'; }, 2500);
   } catch(e) {
     errEl.style.color = '#c62828';
-    errEl.textContent = '\u274c เชื่อมต่อ Server ไม่ได้: ' + e.message;
+    errEl.textContent = '❌ เชื่อมต่อ Server ไม่ได้: ' + e.message;
   }
 }
 
 
 // ===== INIT ON LOAD =====
 document.addEventListener('DOMContentLoaded', async function() {
-  // โหลด users จาก Sheets มา cache ไว้ก่อน (background)
-  fetchUsersFromSheet().then(users => {
-    // สร้าง Admin เริ่มต้นเฉพาะกรณีที่ Sheet ยืนยันว่าว่างจริง (ไม่ใช่ fetch error)
-    if (users !== null && users.length === 0) {
-      const defaultUsers = [
-        { username: 'Admin', display: 'ผู้ดูแลระบบ', passHash: hashPass('9BXvuf33###'), role: 'admin', active: true }
-      ];
-      pushUsersToSheet(defaultUsers);
-    }
-  });
+  // โหลด users จาก Sheets มา cache ไว้ก่อน (background) — ไม่สร้าง Admin อัตโนมัติใน client
+  fetchUsersFromSheet();
 
   const sess = getSession();
   if (sess) {
@@ -3342,12 +3278,15 @@ function renderDraftBar() {
     try { data = JSON.parse(localStorage.getItem(_getDraftDataKey(item.id)) || '{}'); } catch(e) {}
     const pct    = draftCalcProgress(data);
     const status = draftGetStatus(data, item.id);
-    const title  = (data.customer || '(ไม่มีชื่อลูกค้า)') + (data.machine ? ' — ' + data.machine : '');
+    const titleRaw = (data.customer || '(ไม่มีชื่อลูกค้า)') + (data.machine ? ' — ' + data.machine : '');
+    const title  = escapeHtml(titleRaw);
     const timeStr= item.savedAt ? new Date(item.savedAt).toLocaleTimeString('th-TH', {hour:'2-digit',minute:'2-digit'}) : '';
-    const visitStr = data.visits ? data.visits.join(', ') : '';
+    const visitStr = data.visits ? escapeHtml(data.visits.join(', ')) : '';
     const isActive = _currentDraftId === item.id;
+    // item.id ควรเป็น 'dr_' + timestamp เท่านั้น — validate ก่อนใช้
+    const safeId = /^dr_\d+$/.test(item.id) ? item.id : '';
 
-    return `<div class="draft-item ${isActive ? 'draft-active' : ''}" id="draft-item-${item.id}">
+    return `<div class="draft-item ${isActive ? 'draft-active' : ''}" id="draft-item-${safeId}">
       <div class="draft-icon">${isActive ? '✏️' : '📄'}</div>
       <div class="draft-info">
         <div class="draft-title" title="${title}">${title}</div>
@@ -3366,10 +3305,10 @@ function renderDraftBar() {
         ${isActive
           ? `<button class="draft-btn" onclick="draftSaveNow()" title="บันทึก Draft ตอนนี้">&#128190; บันทึก</button>
              <button class="draft-btn draft-btn-blue" onclick="printReport('print')" title="พิมพ์">&#128438; พิมพ์</button>`
-          : `<button class="draft-btn draft-btn-blue" onclick="draftLoad('${item.id}')" title="โหลดใบงานนี้">&#128221; โหลด</button>
-             <button class="draft-btn" onclick="draftNewFromId('${item.id}')" title="คัดลอกลูกค้า">&#128203; คัดลูกค้า</button>`
+          : `<button class="draft-btn draft-btn-blue" onclick="draftLoad('${safeId}')" title="โหลดใบงานนี้">&#128221; โหลด</button>
+             <button class="draft-btn" onclick="draftNewFromId('${safeId}')" title="คัดลอกลูกค้า">&#128203; คัดลูกค้า</button>`
         }
-        <button class="draft-btn draft-btn-del" onclick="draftDelete('${item.id}')" title="ลบ Draft">&#128465; ลบ</button>
+        <button class="draft-btn draft-btn-del" onclick="draftDelete('${safeId}')" title="ลบ Draft">&#128465; ลบ</button>
       </div>
     </div>`;
   }).join('');
