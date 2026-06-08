@@ -2031,7 +2031,7 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwUJko7dEkqIt_Y
 // ===== GOOGLE SHEETS CONFIG =====
 // NOTE: SHEET_ID ใช้เฉพาะ legacy path (fallback) — การ save/read หลักผ่าน Apps Script ด้านบนทั้งหมด
 // Private Key และ Service Account Email ต้องเก็บไว้ใน Apps Script เท่านั้น ห้ามใส่ที่นี่
-const SHEET_ID = '1X-lH3ZJ7UTMV3g9MXqAoGylK7VqN46plnsezIZZML90';
+const SHEET_ID = '1bPTtKd9cvaFQNKQorvQJi2Um1jjmPW9jIZkyNKK9y7w';
 
 // getAccessToken ถูกลบออก — Service Account Private Key ต้องอยู่ใน Apps Script เท่านั้น
 // การ write/read Sheets ทั้งหมดผ่าน APPS_SCRIPT_URL
@@ -2834,8 +2834,22 @@ async function shDeleteRowLegacy(r, idx) {
 function shExportCSV() {
   if (!shFiltered.length) { alert('ไม่มีข้อมูลที่จะ export'); return; }
   const headers = ['บันทึกเมื่อ','เลขที่','วันที่','ลูกค้า','ผู้ติดต่อ','ที่อยู่','โทรศัพท์','เครื่อง/รุ่น','จำนวน','วันติดตั้ง','Serial No.','ประเภทบริการ','อื่นๆ','อาการเสีย','สาเหตุ/แก้ไข','หมายเหตุ','ค่าบริการ','ความพึงพอใจ','ช่าง','ลูกค้า(ลงชื่อ)','เวลาเริ่ม','เวลาเสร็จ'];
-  const csv = [headers, ...shFiltered].map(r => r.map(c=>`"${(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
-  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8'});
+  
+  const csvRows = [];
+  csvRows.push(headers.map(h => `"${h.replace(/"/g, '""')}"`).join(','));
+  
+  shFiltered.forEach(r => {
+    const rowCells = [];
+    for (let i = 0; i < headers.length; i++) {
+      const val = r[i];
+      const strVal = String(val === null || val === undefined ? '' : val);
+      rowCells.push(`"${strVal.replace(/"/g, '""')}"`);
+    }
+    csvRows.push(rowCells.join(','));
+  });
+  
+  const csv = csvRows.join('\n');
+  const blob = new Blob(['\uFEFF' + csv], {type: 'text/csv;charset=utf-8'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `OGA_ServiceReport_${new Date().toISOString().split('T')[0]}.csv`;
